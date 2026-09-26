@@ -1,5 +1,4 @@
 from app.models.document import Document
-from app.models.case import Case
 
 def test_integration_mini_rajesh_analyze(client, auth_headers, db_session):
     # 1. Create Rajesh Patil case

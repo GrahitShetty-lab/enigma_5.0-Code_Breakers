@@ -4,15 +4,13 @@ with pre-extracted text so /analyze produces the 4 expected discoveries (LIC, EP
 even if live OCR is not configured.
 """
 import os
-import uuid
 from datetime import date
 from passlib.context import CryptContext
 
-from app.database import SessionLocal, Base, engine
+from app.database import SessionLocal
 from app.models.user import User
 from app.models.case import Case
 from app.models.document import Document
-from app.models.audit_log import AuditLog
 from app.config import get_settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

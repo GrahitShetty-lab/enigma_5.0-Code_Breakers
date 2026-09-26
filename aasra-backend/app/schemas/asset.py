@@ -1,4 +1,4 @@
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -46,5 +46,4 @@ class AssetResponse(AssetBase):
         else:
             return "NEEDS VERIFICATION"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

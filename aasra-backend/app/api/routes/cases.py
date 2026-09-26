@@ -234,14 +234,14 @@ def analyze_case(
 
     # Step 4: Auto-generate closing tasks for assets
     generated_tasks = generate_tasks_for_case_assets(
-        db, case_id=case_id, assets=upserted_assets, assigned_to=current_user.name
+        db, case_id=case_id, assets=upserted_assets, assigned_to=str(current_user.name)
     )
 
     # Step 5: Confidence breakdown
     all_case_assets = db.query(Asset).filter(Asset.case_id == case_id).all()
-    high_count = sum(1 for a in all_case_assets if a.confidence >= 0.75)
-    med_count = sum(1 for a in all_case_assets if 0.45 <= a.confidence < 0.75)
-    low_count = sum(1 for a in all_case_assets if a.confidence < 0.45)
+    high_count = sum(1 for a in all_case_assets if float(a.confidence or 0.0) >= 0.75)
+    med_count = sum(1 for a in all_case_assets if 0.45 <= float(a.confidence or 0.0) < 0.75)
+    low_count = sum(1 for a in all_case_assets if float(a.confidence or 0.0) < 0.45)
 
     asset_responses = [AssetResponse.model_validate(a) for a in all_case_assets]
     task_responses = [TaskResponse.model_validate(t) for t in generated_tasks]

@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
 }
 
 
-def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resource_id: str, details: str = None):
+def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resource_id: str, details: str | None = None):
     """Write a lightweight audit log entry."""
     log = AuditLog(
         user_id=user_id,

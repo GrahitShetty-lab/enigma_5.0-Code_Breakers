@@ -26,8 +26,8 @@ def compute_case_dashboard(case_id: str, db: Session, user_id: str) -> Dashboard
 
     # 1. Assets vs Liabilities
     assets = db.query(Asset).filter(Asset.case_id == case_id).all()
-    assets_found = sum(1 for a in assets if a.category != "Loan")
-    liabilities_found = sum(1 for a in assets if a.category == "Loan")
+    assets_found = sum(1 for a in assets if str(a.category) != "Loan")
+    liabilities_found = sum(1 for a in assets if str(a.category) == "Loan")
 
     # 2. High priority open tasks
     high_priority_tasks = (
@@ -46,7 +46,7 @@ def compute_case_dashboard(case_id: str, db: Session, user_id: str) -> Dashboard
 
     # 4. Documents missing
     existing_docs = db.query(Document).filter(Document.case_id == case_id).all()
-    doc_types = [d.document_type.strip().lower() for d in existing_docs if d.document_type]
+    doc_types = [str(d.document_type).strip().lower() for d in existing_docs if d.document_type is not None]
     
     missing_count = 0
     for exp in EXPECTED_CORE_DOCUMENTS:
@@ -54,7 +54,7 @@ def compute_case_dashboard(case_id: str, db: Session, user_id: str) -> Dashboard
             missing_count += 1
 
     # 5. Needs verification (confidence < 0.45 or status not verified)
-    needs_verification = sum(1 for a in assets if a.confidence < 0.45 or a.status in ["detected", "needs_verification"])
+    needs_verification = sum(1 for a in assets if float(a.confidence or 0.0) < 0.45 or str(a.status) in ["detected", "needs_verification"])
 
     # 6. Closure percentage (0-100%)
     total_tasks = db.query(Task).filter(Task.case_id == case_id).count()
@@ -99,7 +99,7 @@ def get_case_dashboard(
     current_user: User = Depends(get_current_user),
 ):
     """Retrieve live computed financial discovery and closure metrics for a case."""
-    return compute_case_dashboard(case_id, db, current_user.id)
+    return compute_case_dashboard(case_id, db, str(current_user.id))
 
 
 @router.get("/api/dashboard/{case_id}", response_model=DashboardMetrics)
@@ -109,4 +109,4 @@ def get_dashboard_alias(
     current_user: User = Depends(get_current_user),
 ):
     """Alias for /api/cases/{case_id}/dashboard."""
-    return compute_case_dashboard(case_id, db, current_user.id)
+    return compute_case_dashboard(case_id, db, str(current_user.id))

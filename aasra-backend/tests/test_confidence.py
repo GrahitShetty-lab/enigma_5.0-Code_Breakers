@@ -1,8 +1,6 @@
-import pytest
 from app.services.confidence_service import (
     score_evidence_quality,
     score_repetition,
-    score_cross_source,
     score_identity_match,
     calculate_confidence,
     get_confidence_label,

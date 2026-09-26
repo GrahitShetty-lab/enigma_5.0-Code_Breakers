@@ -82,6 +82,8 @@ def update_claim(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Claim not found")
 
     asset = db.query(Asset).filter(Asset.id == claim.asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated asset not found")
     case = db.query(Case).filter(Case.id == asset.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
