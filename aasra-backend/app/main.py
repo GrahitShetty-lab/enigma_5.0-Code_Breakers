@@ -37,3 +37,4 @@ app.include_router(dashboard.router)
 def health_check():
     """Liveness probe — returns 200 if the server is up."""
     return {"status": "healthy", "service": "aasra-backend"}
+
