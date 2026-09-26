@@ -5,7 +5,7 @@ from typing import Optional
 class CaseBase(BaseModel):
     deceased_name: str
     date_of_death: date
-    relationship: str
+    relationship_to_deceased: str
     state: str
 
 class CaseCreate(CaseBase):
@@ -14,7 +14,7 @@ class CaseCreate(CaseBase):
 class CaseUpdate(BaseModel):
     deceased_name: Optional[str] = None
     date_of_death: Optional[date] = None
-    relationship: Optional[str] = None
+    relationship_to_deceased: Optional[str] = None
     state: Optional[str] = None
     status: Optional[str] = None
 

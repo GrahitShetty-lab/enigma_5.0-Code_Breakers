@@ -14,11 +14,13 @@ class Case(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     deceased_name = Column(String, nullable=False)
     date_of_death = Column(Date, nullable=False)
-    relationship = Column(String, nullable=False)
+    relationship_to_deceased = Column(String, nullable=False)
     state = Column(String, nullable=False)
     status = Column(String, default="active")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    user = relationship("User")
+    user = relationship("User", back_populates="cases")
     documents = relationship("Document", back_populates="case")
+    assets = relationship("Asset", back_populates="case")
+    tasks = relationship("Task", back_populates="case")

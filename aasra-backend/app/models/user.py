@@ -1,3 +1,4 @@
+from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.sql import func
 import uuid
@@ -15,3 +16,5 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     preferred_language = Column(String, default="en")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    cases = relationship('Case', back_populates='user')

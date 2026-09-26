@@ -80,6 +80,7 @@ async def upload_document(
         uploaded_by=current_user.id,
     )
     db.add(doc)
+    db.flush()
 
     # Audit log
     _audit_log(db, current_user.id, "document_upload", "document", doc.id, f"type={document_type}")

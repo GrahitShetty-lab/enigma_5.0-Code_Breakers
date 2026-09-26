@@ -23,7 +23,7 @@ def create_case(
         user_id=current_user.id,
         deceased_name=data.deceased_name,
         date_of_death=data.date_of_death,
-        relationship=data.relationship,
+        relationship_to_deceased=data.relationship_to_deceased,
         state=data.state,
     )
     db.add(case)
