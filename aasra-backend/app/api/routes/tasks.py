@@ -1,4 +1,4 @@
-"""Task routes — follow-up actions linked to detected assets."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -10,20 +10,23 @@ from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate, TaskAssign, TaskResponse
 from app.api.routes.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["tasks"])
 
 
 @router.get("/api/cases/{case_id}/tasks", response_model=List[TaskResponse])
-def list_tasks(
+def list_case_tasks(
     case_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all tasks for a case."""
+    """List all follow-up closing tasks for a case."""
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    return db.query(Task).filter(Task.case_id == case_id).all()
+
+    tasks = db.query(Task).filter(Task.case_id == case_id).all()
+    return tasks
 
 
 @router.post("/api/cases/{case_id}/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -33,18 +36,20 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a manual follow-up task."""
+    """Create a manual closing task for a case."""
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
     task = Task(
         case_id=case_id,
         asset_id=data.asset_id,
         title=data.title,
         description=data.description,
-        priority=data.priority,
+        priority=data.priority or "MEDIUM",
+        assigned_to=data.assigned_to,
         due_date=data.due_date,
+        status=data.status or "pending",
     )
     db.add(task)
     db.commit()
@@ -59,19 +64,19 @@ def update_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a task."""
+    """Update task status, priority, or details."""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    
+
     case = db.query(Case).filter(Case.id == task.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    
-    update_data = data.model_dump(exclude_unset=True)
-    for field_name, value in update_data.items():
-        setattr(task, field_name, value)
-    
+
+    update_dict = data.model_dump(exclude_unset=True)
+    for field, value in update_dict.items():
+        setattr(task, field, value)
+
     db.commit()
     db.refresh(task)
     return task
@@ -84,15 +89,15 @@ def assign_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Assign a task to a user."""
+    """Assign task to a specific family member."""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    
+
     case = db.query(Case).filter(Case.id == task.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    
+
     task.assigned_to = data.assigned_to
     db.commit()
     db.refresh(task)

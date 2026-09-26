@@ -1,5 +1,3 @@
-"""Asset routes — POSSIBLE financial products detected from evidence.
-Identifiers are masked by default; 'reveal' query param triggers audit-logged unmasking."""
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -12,58 +10,51 @@ from app.models.asset import Asset
 from app.models.audit_log import AuditLog
 from app.schemas.asset import AssetCreate, AssetUpdate, AssetResponse
 from app.api.routes.auth import get_current_user
-from app.utils import mask_identifier
-from app.services.extraction_service import _get_next_action
+from app.utils.masking import mask_identifier
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["assets"])
 
 
 def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resource_id: str, details: str = None):
-    log = AuditLog(user_id=user_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
+    log = AuditLog(
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=details,
+    )
     db.add(log)
 
 
-def _asset_to_response(asset: Asset, reveal: bool = False) -> AssetResponse:
-    """Convert an Asset model to response, masking identifier by default."""
-    masked_id = asset.masked_identifier if reveal else mask_identifier(asset.masked_identifier)
-    return AssetResponse(
-        id=asset.id,
-        case_id=asset.case_id,
-        category=asset.category,
-        institution=asset.institution,
-        masked_identifier=masked_id,
-        estimated_value=asset.estimated_value,
-        nominee_status=asset.nominee_status,
-        confidence=asset.confidence,
-        status=asset.status,
-        evidence_document_id=asset.evidence_document_id,
-        evidence_description=asset.evidence_description,
-        next_action=_get_next_action(asset.category, asset.institution),
-        created_at=asset.created_at,
-    )
+def _to_asset_response(asset: Asset, reveal: bool = False) -> AssetResponse:
+    resp = AssetResponse.model_validate(asset)
+    if reveal:
+        resp.revealed_identifier = asset.identifier
+    else:
+        resp.revealed_identifier = None
+    return resp
 
 
 @router.get("/api/cases/{case_id}/assets", response_model=List[AssetResponse])
-def list_assets(
+def list_case_assets(
     case_id: str,
-    reveal: bool = Query(False, description="Set to true to unmask identifiers (audit-logged)"),
+    reveal: bool = Query(False, description="Reveal unmasked identifier (access is audit-logged)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all detected assets for a case. Identifiers masked by default."""
+    """List all assets/liabilities discovered for a case."""
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
     assets = db.query(Asset).filter(Asset.case_id == case_id).all()
-    
+
     if reveal:
-        for asset in assets:
-            _audit_log(db, current_user.id, "identifier_reveal", "asset", asset.id, f"Revealed identifier for {asset.institution}")
+        _audit_log(db, current_user.id, "reveal_identifiers", "case_assets", case_id, f"count={len(assets)}")
         db.commit()
-    
-    return [_asset_to_response(a, reveal=reveal) for a in assets]
+
+    return [_to_asset_response(a, reveal=reveal) for a in assets]
 
 
 @router.post("/api/cases/{case_id}/assets", response_model=AssetResponse, status_code=status.HTTP_201_CREATED)
@@ -73,47 +64,54 @@ def create_asset(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Manually add a possible asset to a case."""
+    """Manually add an asset/liability hypothesis to a case."""
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
+    masked = mask_identifier(data.identifier) if data.identifier else None
+
     asset = Asset(
         case_id=case_id,
         category=data.category,
         institution=data.institution,
-        masked_identifier=data.masked_identifier,
+        identifier=data.identifier,
+        masked_identifier=masked,
         estimated_value=data.estimated_value,
-        nominee_status=data.nominee_status,
+        nominee_status=data.nominee_status or "unknown",
+        confidence=data.confidence if data.confidence is not None else 0.0,
+        status=data.status or "detected",
         evidence_document_id=data.evidence_document_id,
+        explanation=data.explanation,
+        recommended_action=data.recommended_action,
     )
     db.add(asset)
     db.commit()
     db.refresh(asset)
-    return _asset_to_response(asset)
+    return _to_asset_response(asset, reveal=False)
 
 
 @router.get("/api/assets/{asset_id}", response_model=AssetResponse)
 def get_asset(
     asset_id: str,
-    reveal: bool = Query(False, description="Set to true to unmask identifiers (audit-logged)"),
+    reveal: bool = Query(False, description="Reveal unmasked identifier (access is audit-logged)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get a specific asset."""
+    """Get single asset detail. Reveal param is audit logged."""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
-    
+
     case = db.query(Case).filter(Case.id == asset.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
-    
+
     if reveal:
-        _audit_log(db, current_user.id, "identifier_reveal", "asset", asset.id)
+        _audit_log(db, current_user.id, "reveal_identifier", "asset", asset_id)
         db.commit()
-    
-    return _asset_to_response(asset, reveal=reveal)
+
+    return _to_asset_response(asset, reveal=reveal)
 
 
 @router.patch("/api/assets/{asset_id}", response_model=AssetResponse)
@@ -123,19 +121,22 @@ def update_asset(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update a detected asset (e.g. after manual verification)."""
+    """Update asset status, value, explanation or other details."""
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
-    
+
     case = db.query(Case).filter(Case.id == asset.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
-    
-    update_data = data.model_dump(exclude_unset=True)
-    for field_name, value in update_data.items():
-        setattr(asset, field_name, value)
-    
+
+    update_dict = data.model_dump(exclude_unset=True)
+    if "identifier" in update_dict and update_dict["identifier"] is not None:
+        asset.masked_identifier = mask_identifier(update_dict["identifier"])
+
+    for field, value in update_dict.items():
+        setattr(asset, field, value)
+
     db.commit()
     db.refresh(asset)
-    return _asset_to_response(asset)
+    return _to_asset_response(asset, reveal=False)
