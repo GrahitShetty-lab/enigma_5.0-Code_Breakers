@@ -1,0 +1,9 @@
+{
+  "include": [
+    "app",
+    "tests",
+    "seed_rajesh_case.py"
+  ],
+  "venvPath": ".",
+  "venv": "venv"
+}

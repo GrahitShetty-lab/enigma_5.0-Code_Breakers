@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["assets"])
 
 
-def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resource_id: str, details: str = None):
+def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resource_id: str, details: str | None = None):
     log = AuditLog(
         user_id=user_id,
         action=action,
@@ -30,7 +30,7 @@ def _audit_log(db: Session, user_id: str, action: str, resource_type: str, resou
 def _to_asset_response(asset: Asset, reveal: bool = False) -> AssetResponse:
     resp = AssetResponse.model_validate(asset)
     if reveal:
-        resp.revealed_identifier = asset.identifier
+        resp.revealed_identifier = str(asset.identifier) if getattr(asset, "identifier", None) else None
     else:
         resp.revealed_identifier = None
     return resp
@@ -51,7 +51,7 @@ def list_case_assets(
     assets = db.query(Asset).filter(Asset.case_id == case_id).all()
 
     if reveal:
-        _audit_log(db, current_user.id, "reveal_identifiers", "case_assets", case_id, f"count={len(assets)}")
+        _audit_log(db, str(current_user.id), "reveal_identifiers", "case_assets", case_id, f"count={len(assets)}")
         db.commit()
 
     return [_to_asset_response(a, reveal=reveal) for a in assets]
@@ -108,7 +108,7 @@ def get_asset(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
 
     if reveal:
-        _audit_log(db, current_user.id, "reveal_identifier", "asset", asset_id)
+        _audit_log(db, str(current_user.id), "reveal_identifier", "asset", asset_id)
         db.commit()
 
     return _to_asset_response(asset, reveal=reveal)
@@ -132,7 +132,7 @@ def update_asset(
 
     update_dict = data.model_dump(exclude_unset=True)
     if "identifier" in update_dict and update_dict["identifier"] is not None:
-        asset.masked_identifier = mask_identifier(update_dict["identifier"])
+        setattr(asset, "masked_identifier", mask_identifier(str(update_dict["identifier"])))
 
     for field, value in update_dict.items():
         setattr(asset, field, value)

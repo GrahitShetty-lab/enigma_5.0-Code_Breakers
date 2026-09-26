@@ -54,7 +54,7 @@ def compute_case_dashboard(case_id: str, db: Session, user_id: str) -> Dashboard
             missing_count += 1
 
     # 5. Needs verification (confidence < 0.45 or status not verified)
-    needs_verification = sum(1 for a in assets if float(a.confidence or 0.0) < 0.45 or str(a.status) in ["detected", "needs_verification"])
+    needs_verification = sum(1 for a in assets if float(getattr(a, "confidence", 0.0) or 0.0) < 0.45 or str(a.status) in ["detected", "needs_verification"])
 
     # 6. Closure percentage (0-100%)
     total_tasks = db.query(Task).filter(Task.case_id == case_id).count()

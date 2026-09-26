@@ -136,7 +136,7 @@ Closing Balance: Rs.1,20,510.00"""
             db.refresh(doc)
             print(f"  + Added evidence doc: {item['type']} ({item['filename']})")
         else:
-            doc.extracted_text = item["text"]
+            setattr(doc, "extracted_text", item["text"])
             db.commit()
             print(f"  = Evidence doc exists: {item['type']} ({item['filename']})")
 

@@ -124,14 +124,15 @@ def analyze_case(
 
     # Step 1: Run OCR on unanalyzed documents
     for doc in documents:
-        if not doc.extracted_text or not doc.extracted_text.strip():
+        doc_text = str(doc.extracted_text or "")
+        if not doc_text.strip():
             logger.info(f"Running OCR on document {doc.id} ({doc.document_type})")
-            ocr_text = extract_text_from_file(doc.file_url)
+            ocr_text = extract_text_from_file(str(doc.file_url))
             if ocr_text:
-                doc.extracted_text = ocr_text
-                doc.verification_status = "analyzed"
+                setattr(doc, "extracted_text", ocr_text)
+                setattr(doc, "verification_status", "analyzed")
             else:
-                doc.verification_status = "ocr_pending"
+                setattr(doc, "verification_status", "ocr_pending")
     db.commit()
 
     # Step 2: Extract clues across all documents
@@ -139,13 +140,13 @@ def analyze_case(
     combined_corpus = []
 
     for doc in documents:
-        text = doc.extracted_text or ""
+        text = str(doc.extracted_text or "")
         combined_corpus.append(text)
         if text.strip():
-            doc_clues = extract_financial_clues(text, document_type=doc.document_type)
+            doc_clues = extract_financial_clues(text, document_type=str(doc.document_type))
             for clue in doc_clues:
-                clue["source_doc_id"] = doc.id
-                clue["source_doc_type"] = doc.document_type
+                clue["source_doc_id"] = str(doc.id)
+                clue["source_doc_type"] = str(doc.document_type)
                 clue["text_length"] = len(text)
                 all_clues.append(clue)
 
@@ -189,7 +190,13 @@ def analyze_case(
         V = score_cross_source(distinct_sources, distinct_types)
 
         # M: Identity match against deceased name
-        M = score_identity_match(full_text, deceased_name=case.deceased_name, family_names=[current_user.name])
+        dec_name = str(case.deceased_name) if getattr(case, "deceased_name", None) else None
+        fam_names = [str(current_user.name)] if getattr(current_user, "name", None) else None
+        M = score_identity_match(
+            full_text,
+            deceased_name=dec_name,
+            family_names=fam_names,
+        )
 
         confidence_val = calculate_confidence(E, R, V, M)
 
@@ -201,14 +208,14 @@ def analyze_case(
         )
 
         if existing_asset:
-            existing_asset.confidence = confidence_val
-            existing_asset.explanation = primary["explanation"]
-            existing_asset.recommended_action = primary["recommended_action"]
+            setattr(existing_asset, "confidence", confidence_val)
+            setattr(existing_asset, "explanation", primary["explanation"])
+            setattr(existing_asset, "recommended_action", primary["recommended_action"])
             if primary.get("estimated_value"):
-                existing_asset.estimated_value = primary["estimated_value"]
-            if identifier and not existing_asset.identifier:
-                existing_asset.identifier = identifier
-                existing_asset.masked_identifier = masked
+                setattr(existing_asset, "estimated_value", primary["estimated_value"])
+            if identifier and not getattr(existing_asset, "identifier", None):
+                setattr(existing_asset, "identifier", identifier)
+                setattr(existing_asset, "masked_identifier", masked)
             upserted_assets.append(existing_asset)
         else:
             new_asset = Asset(
@@ -239,9 +246,9 @@ def analyze_case(
 
     # Step 5: Confidence breakdown
     all_case_assets = db.query(Asset).filter(Asset.case_id == case_id).all()
-    high_count = sum(1 for a in all_case_assets if float(a.confidence or 0.0) >= 0.75)
-    med_count = sum(1 for a in all_case_assets if 0.45 <= float(a.confidence or 0.0) < 0.75)
-    low_count = sum(1 for a in all_case_assets if float(a.confidence or 0.0) < 0.45)
+    high_count = sum(1 for a in all_case_assets if float(getattr(a, "confidence", 0.0) or 0.0) >= 0.75)
+    med_count = sum(1 for a in all_case_assets if 0.45 <= float(getattr(a, "confidence", 0.0) or 0.0) < 0.75)
+    low_count = sum(1 for a in all_case_assets if float(getattr(a, "confidence", 0.0) or 0.0) < 0.45)
 
     asset_responses = [AssetResponse.model_validate(a) for a in all_case_assets]
     task_responses = [TaskResponse.model_validate(t) for t in generated_tasks]

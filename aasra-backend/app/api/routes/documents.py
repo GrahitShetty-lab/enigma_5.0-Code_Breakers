@@ -83,7 +83,7 @@ async def upload_document(
     db.flush()
 
     # Audit log
-    _audit_log(db, current_user.id, "document_upload", "document", doc.id, f"type={document_type}")
+    _audit_log(db, str(current_user.id), "document_upload", "document", str(doc.id), f"type={document_type}")
 
     db.commit()
     db.refresh(doc)
@@ -107,7 +107,7 @@ def list_documents(
 
     # Audit log each access
     for doc in docs:
-        _audit_log(db, current_user.id, "document_access", "document", doc.id)
+        _audit_log(db, str(current_user.id), "document_access", "document", str(doc.id))
     db.commit()
 
     return docs
@@ -129,7 +129,7 @@ def get_document(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    _audit_log(db, current_user.id, "document_access", "document", doc.id)
+    _audit_log(db, str(current_user.id), "document_access", "document", str(doc.id))
     db.commit()
 
     return doc

@@ -98,7 +98,7 @@ def assign_task(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
-    task.assigned_to = data.assigned_to
+    setattr(task, "assigned_to", data.assigned_to)
     db.commit()
     db.refresh(task)
     return task

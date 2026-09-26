@@ -1,0 +1,3 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/aasra-backend/venv/Scripts/python.exe"
+}

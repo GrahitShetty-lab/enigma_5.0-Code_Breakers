@@ -49,7 +49,7 @@ def generate_task_for_asset(
         logger.info(f"Task already exists for asset {asset.id} in case {case_id}")
         return existing
 
-    template = TASK_TEMPLATES.get(asset.category)
+    template = TASK_TEMPLATES.get(str(asset.category))
     if not template:
         # Fallback generic task
         template = {

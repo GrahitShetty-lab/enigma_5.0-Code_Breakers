@@ -35,9 +35,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_raw = payload.get("sub")
+        if user_id_raw is None:
             raise credentials_exception
+        user_id = str(user_id_raw)
     except JWTError:
         raise credentials_exception
 
@@ -78,7 +79,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid phone number or password",
         )
-    return TokenResponse(access_token=_create_token(user.id))
+    return TokenResponse(access_token=_create_token(str(user.id)))
 
 
 @router.get("/me", response_model=UserResponse)
