@@ -40,7 +40,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
@@ -56,7 +56,7 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="Phone number already registered",
         )
-    
+
     user = User(
         name=data.name,
         phone=data.phone,

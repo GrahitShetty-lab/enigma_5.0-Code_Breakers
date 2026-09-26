@@ -51,7 +51,7 @@ async def upload_document(
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
     # Validate file type
     content_type = file.content_type
     if content_type not in ALLOWED_TYPES:
@@ -59,7 +59,7 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File type '{content_type}' not allowed. Accepted: PDF, JPG, PNG",
         )
-    
+
     # Save file
     settings = get_settings()
     ext = ALLOWED_TYPES[content_type]
@@ -67,11 +67,11 @@ async def upload_document(
     upload_dir = os.path.abspath(settings.UPLOAD_DIR)
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, filename)
-    
+
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
-    
+
     # Create document record
     doc = Document(
         case_id=case_id,
@@ -80,13 +80,13 @@ async def upload_document(
         uploaded_by=current_user.id,
     )
     db.add(doc)
-    
+
     # Audit log
     _audit_log(db, current_user.id, "document_upload", "document", doc.id, f"type={document_type}")
-    
+
     db.commit()
     db.refresh(doc)
-    
+
     logger.info("Document uploaded: %s (type=%s, case=%s)", doc.id, document_type, case_id)
     return doc
 
@@ -101,14 +101,14 @@ def list_documents(
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
     docs = db.query(Document).filter(Document.case_id == case_id).all()
-    
+
     # Audit log each access
     for doc in docs:
         _audit_log(db, current_user.id, "document_access", "document", doc.id)
     db.commit()
-    
+
     return docs
 
 
@@ -122,13 +122,13 @@ def get_document(
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    
+
     # Verify case ownership
     case = db.query(Case).filter(Case.id == doc.case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    
+
     _audit_log(db, current_user.id, "document_access", "document", doc.id)
     db.commit()
-    
+
     return doc

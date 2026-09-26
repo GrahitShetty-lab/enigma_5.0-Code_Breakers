@@ -8,6 +8,9 @@ from alembic import context
 from app.database import Base
 from app.config import get_settings
 import app.models.user
+import app.models.case
+import app.models.document
+import app.models.audit_log
 
 settings = get_settings()
 # this is the Alembic Config object, which provides

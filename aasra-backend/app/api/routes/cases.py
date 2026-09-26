@@ -65,11 +65,11 @@ def update_case(
     case = db.query(Case).filter(Case.id == case_id, Case.user_id == current_user.id).first()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
-    
+
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(case, field, value)
-    
+
     db.commit()
     db.refresh(case)
     return case
