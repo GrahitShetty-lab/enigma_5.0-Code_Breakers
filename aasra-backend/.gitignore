@@ -1,14 +1,4 @@
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-ENV/
 *.db
-*.sqlite
-*.sqlite3
-uploads/
-test_evidence.png
-test.pdf
+venv/
